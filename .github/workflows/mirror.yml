@@ -17,27 +17,34 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Git
         run: |
           git config --global user.name "qinshihu"
           git config --global user.email "huawei_network@foxmail.com"
 
-      - name: Add Gitee Remote
-        run: |
-          git remote add gitee https://${{ secrets.GITEE_USERNAME }}:${{ secrets.GITEE_PASSWORD }}@gitee.com/IT_Oline/itops-agent-platform.git || true
-
-      - name: Add Gitcode Remote
-        run: |
-          git remote add gitcode https://${{ secrets.GITCODE_USERNAME }}:${{ secrets.GITCODE_TOKEN }}@gitcode.com/gcw_IM7aAihp/itops-agent-platform.git || true
-
       - name: Push to Gitee
+        if: secrets.GITEE_TOKEN != ''
+        env:
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
         run: |
-          git push gitee --all --force || true
-          git push gitee --tags --force || true
+          echo "Setting up Gitee remote..."
+          git remote add gitee https://oauth2:${GITEE_TOKEN}@gitee.com/IT_Oline/itops-agent-platform.git || git remote set-url gitee https://oauth2:${GITEE_TOKEN}@gitee.com/IT_Oline/itops-agent-platform.git
+          echo "Pushing branches to Gitee..."
+          git push gitee main --force --verbose 2>&1
+          echo "Pushing tags to Gitee..."
+          git push gitee --tags --force --verbose 2>&1
+          echo "Gitee sync completed!"
 
       - name: Push to Gitcode
+        if: secrets.GITCODE_TOKEN != ''
+        env:
+          GITCODE_TOKEN: ${{ secrets.GITCODE_TOKEN }}
         run: |
-          git push gitcode --all --force || true
-          git push gitcode --tags --force || true
+          echo "Setting up Gitcode remote..."
+          git remote add gitcode https://oauth2:${GITCODE_TOKEN}@gitcode.com/gcw_IM7aAihp/itops-agent-platform.git || git remote set-url gitcode https://oauth2:${GITCODE_TOKEN}@gitcode.com/gcw_IM7aAihp/itops-agent-platform.git
+          echo "Pushing branches to Gitcode..."
+          git push gitcode main --force --verbose 2>&1
+          echo "Pushing tags to Gitcode..."
+          git push gitcode --tags --force --verbose 2>&1
+          echo "Gitcode sync completed!"
