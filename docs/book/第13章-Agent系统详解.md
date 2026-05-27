@@ -1,5 +1,22 @@
 # 第13章 Agent系统详解
 
+## 作者
+
+**谭策** — 独立开发者 | AIOps 领域探索者
+
+- 🌐 项目官网：[ITOpsAgentinfo](https://www.zjzwfw.cloud/ITOpsAgentinfo)
+- 📝 博客：[zjzwfw.cloud](https://www.zjzwfw.cloud/)
+- 📧 邮箱：<huawei_network@foxmail.com>
+- 💬 微信公众号：**IT Online**
+
+<p align="left">
+  <img src="./frontend/public/wechaterweima.png" width="200" alt="IT Online 微信公众号">
+</p>
+
+## 许可证
+
+[MPL-2.0](../../LICENSE) © 谭策
+
 ## 本章导读
 
 Agent 是 ITOps Agent Platform 的核心智能单元。系统内置 9 个预设 Agent，分别覆盖告警处理、故障诊断、日志分析、系统巡检、变更执行、文档生成、合规检查、服务器命令执行和自动巡检等运维场景。本章深入剖析 Agent 的配置存储、执行引擎、LLM 调用链路、执行追踪、多 Agent 协作模式以及 WebSocket 实时进度推送，帮助读者全面掌握 Agent 系统的设计与扩展方法。

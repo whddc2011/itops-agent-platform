@@ -1,5 +1,22 @@
 # 第9章 API开发实战
 
+## 作者
+
+**谭策** — 独立开发者 | AIOps 领域探索者
+
+- 🌐 项目官网：[ITOpsAgentinfo](https://www.zjzwfw.cloud/ITOpsAgentinfo)
+- 📝 博客：[zjzwfw.cloud](https://www.zjzwfw.cloud/)
+- 📧 邮箱：<huawei_network@foxmail.com>
+- 💬 微信公众号：**IT Online**
+
+<p align="left">
+  <img src="./frontend/public/wechaterweima.png" width="200" alt="IT Online 微信公众号">
+</p>
+
+## 许可证
+
+[MPL-2.0](../../LICENSE) © 谭策
+
 ## 本章导读
 
 第6章我们学习了后端开发的基础知识，了解了如何创建路由、编写中间件和操作数据库。本章将**深入实战**，基于项目的实际代码模式，讲解如何编写生产级别的高质量 API。我们将分析三个核心路由模块的完整实现，涵盖 CRUD、分页、过滤、验证、安全等真实场景。
