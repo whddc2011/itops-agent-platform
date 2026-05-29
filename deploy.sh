@@ -193,26 +193,46 @@ COMPOSE_EOF
 
 # 生成 .env 文件
 generate_env_file() {
+    # 定义期望的配置项及其默认值
+    declare -A EXPECTED_CONFIG=(
+        ["JWT_SECRET"]="__GENERATE__"
+        ["ADMIN_INITIAL_PASSWORD"]=""
+        ["PORT"]="3001"
+        ["NODE_ENV"]="production"
+        ["ALLOWED_ORIGINS"]="http://localhost:3000,http://localhost:8080"
+        ["DOUBAO_API_KEY"]=""
+        ["DOUBAO_API_BASE"]="https://ark.cn-beijing.volces.com/api/v3"
+        ["DOUBAO_MODEL"]="doubao-4o"
+        ["OPENAI_API_KEY"]=""
+        ["OPENAI_API_BASE"]="https://api.openai.com/v1"
+        ["OPENAI_MODEL"]="gpt-4o"
+    )
+    
     if [ -f ".env" ]; then
-        print_warn ".env 文件已存在"
-        if [ "$AUTO_YES" = true ]; then
-            print_info "自动确认模式，覆盖文件"
-        else
-            read -p "是否覆盖? (y/N): " -n 1 -r
-            echo
-            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-                print_info "跳过生成 .env 文件"
-                return
+        print_info "发现已有 .env 文件，执行智能增量更新..."
+        
+        for key in "${!EXPECTED_CONFIG[@]}"; do
+            local default_val="${EXPECTED_CONFIG[$key]}"
+            
+            # 检查是否存在未注释的配置项
+            if ! grep -q "^${key}=" .env; then
+                local value="$default_val"
+                if [ "$key" = "JWT_SECRET" ]; then
+                    value=$(openssl rand -base64 32 2>/dev/null || cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 64 | head -n 1)
+                fi
+                echo "${key}=${value}" >> .env
+                print_info "追加缺失项: ${key}"
             fi
-        fi
-    fi
-    
-    print_info "生成 .env 配置文件..."
-    
-    # 生成随机 JWT_SECRET
-    JWT_SECRET=$(openssl rand -base64 32 2>/dev/null || cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 64 | head -n 1)
-    
-    cat > .env << EOF
+        done
+        
+        print_success ".env 文件已更新 (保留了您的自定义配置)"
+    else
+        # 首次生成
+        print_info "生成 .env 配置文件..."
+        
+        JWT_SECRET=$(openssl rand -base64 32 2>/dev/null || cat /dev/urandom | tr -dc 'a-zA-Z0-9' | fold -w 64 | head -n 1)
+        
+        cat > .env << EOF
 # ITOps Agent Platform 配置文件
 # 生成时间: $(date '+%Y-%m-%d %H:%M:%S')
 
@@ -222,7 +242,7 @@ JWT_SECRET=${JWT_SECRET}
 # 管理员初始密码（可选，留空则使用默认 'admin' 密码）
 ADMIN_INITIAL_PASSWORD=
 
-# 后端端
+# 后端端口
 PORT=3001
 
 # 运行环境
@@ -241,9 +261,9 @@ ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8080
 # OPENAI_API_BASE=https://api.openai.com/v1
 # OPENAI_MODEL=gpt-4o
 EOF
-    
-    print_success ".env 文件已生成"
-    
+        
+        print_success ".env 文件已生成"
+    fi
     echo ""
 }
 
@@ -362,43 +382,53 @@ main() {
     print_header
     
     # 解析参数
-    DEPLOY_DIR="/opt/itops"
-    AUTO_YES=false
-    
-    while [[ $# -gt 0 ]]; do
-        case $1 in
-            -d|--dir)
-                DEPLOY_DIR="$2"
-                shift 2
-                ;;
-            -y|--yes)
-                AUTO_YES=true
-                shift
-                ;;
-            -h|--help)
-                echo "用法: $0 [-d 部署目录] [-y 自动确认] [-h 帮助]"
-                echo ""
-                echo "选项:"
-                echo "  -d, --dir    部署目录 (默认: /opt/itops)"
-                echo "  -y, --yes    自动确认所有提示 (非交互模式)"
-                echo "  -h, --help   显示帮助"
-                exit 0
-                ;;
-            *)
-                print_error "未知参数: $1"
-                exit 1
-                ;;
-        esac
-    done
-    
-    check_dependencies
-    setup_directory "$DEPLOY_DIR"
+DEPLOY_DIR="/opt/itops"
+AUTO_YES=false
+UPDATE_MODE=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -d|--dir)
+            DEPLOY_DIR="$2"
+            shift 2
+            ;;
+        -y|--yes)
+            AUTO_YES=true
+            shift
+            ;;
+        -u|--update)
+            UPDATE_MODE=true
+            shift
+            ;;
+        -h|--help)
+            echo "用法: $0 [-d 部署目录] [-y 自动确认] [-u 更新模式] [-h 帮助]"
+            echo ""
+            echo "选项:"
+            echo "  -d, --dir    部署目录 (默认: /opt/itops)"
+            echo "  -y, --yes    自动确认所有提示 (非交互模式)"
+            echo "  -u, --update 更新模式（跳过文件生成，仅拉取镜像并重启，清理残留）"
+            echo "  -h, --help   显示帮助"
+            exit 0
+            ;;
+        *)
+            print_error "未知参数: $1"
+            exit 1
+            ;;
+    esac
+done
+
+check_dependencies
+setup_directory "$DEPLOY_DIR"
+
+if [ "$UPDATE_MODE" = false ]; then
     generate_compose_file
     generate_env_file
-    pull_images
-    start_services
-    verify_services
-    print_deploy_info
+fi
+
+pull_images
+start_services
+verify_services
+print_deploy_info
 }
 
 main "$@"

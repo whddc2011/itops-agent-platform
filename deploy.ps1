@@ -27,7 +27,8 @@ param(
     [string]$BackendPort = "3001",
     [string]$FrontendPort = "8080",
     [string]$JwtSecret = "",
-    [switch]$Help
+    [switch]$Help,
+    [switch]$Update
 )
 
 # Show help if requested
@@ -77,6 +78,72 @@ function Write-Info { param($Message) Write-Host "[INFO] $Message" -ForegroundCo
 function Write-Success { param($Message) Write-Host "[SUCCESS] $Message" -ForegroundColor $Green }
 function Write-Warn { param($Message) Write-Host "[WARN] $Message" -ForegroundColor $Yellow }
 function Write-Error-Msg { param($Message) Write-Host "[ERROR] $Message" -ForegroundColor $Red; exit 1 }
+
+# Generate .env file with smart incremental update logic
+function Update-EnvFile {
+    param(
+        [string]$JwtSecret,
+        [string]$FrontendPort
+    )
+    
+    $ExpectedConfig = @{
+        "JWT_SECRET" = $JwtSecret
+        "ADMIN_INITIAL_PASSWORD" = ""
+        "PORT" = "3001"
+        "NODE_ENV" = "production"
+        "ALLOWED_ORIGINS" = "http://localhost:$FrontendPort"
+        "DOUBAO_API_KEY" = ""
+        "DOUBAO_API_BASE" = "https://ark.cn-beijing.volces.com/api/v3"
+        "DOUBAO_MODEL" = "doubao-4o"
+        "OPENAI_API_KEY" = ""
+        "OPENAI_API_BASE" = "https://api.openai.com/v1"
+        "OPENAI_MODEL" = "gpt-4o"
+    }
+    
+    if (Test-Path ".env") {
+        Write-Info "Found existing .env file, performing smart incremental update..."
+        
+        $Content = Get-Content ".env" -Raw
+        foreach ($Key in $ExpectedConfig.Keys) {
+            if ($Content -notmatch "(?m)^$Key=") {
+                Add-Content -Path ".env" -Value "$Key=$($ExpectedConfig[$Key])"
+                Write-Info "Added missing key: $Key"
+            }
+        }
+        Write-Success ".env file updated (preserved your custom configurations)"
+    } else {
+        Write-Info "Creating new .env file..."
+        $EnvContent = @"
+# ITOps Agent Platform - Environment Configuration
+# Generated on $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+
+# JWT Configuration
+JWT_SECRET=$JwtSecret
+
+# Administrator Initial Password (optional - defaults to 'admin')
+# Leave empty to use default 'admin' password
+ADMIN_INITIAL_PASSWORD=
+
+# Server Configuration
+PORT=3001
+NODE_ENV=production
+ALLOWED_ORIGINS=http://localhost:$FrontendPort
+
+# LLM API Configuration (configure at least one)
+# Doubao (豆包)
+# DOUBAO_API_KEY=
+DOUBAO_API_BASE=https://ark.cn-beijing.volces.com/api/v3
+DOUBAO_MODEL=doubao-4o
+
+# OpenAI
+# OPENAI_API_KEY=
+OPENAI_API_BASE=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o
+"@
+        $EnvContent | Out-File -FilePath ".env" -Encoding utf8 -Force
+        Write-Success ".env file created"
+    }
+}
 
 # Check prerequisites
 Write-Info "Checking prerequisites..."
@@ -128,48 +195,21 @@ if ([string]::IsNullOrEmpty($JwtSecret)) {
     Write-Info "Generated JWT secret (will be saved to .env)"
 }
 
-# Create .env file
-Write-Info "Creating .env file..."
-$EnvContent = @"
-# ITOps Agent Platform - Environment Configuration
-# Generated on $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-
-# JWT Configuration
-JWT_SECRET=$JwtSecret
-
-# Administrator Initial Password (optional - defaults to 'admin')
-# Leave empty to use default 'admin' password
-ADMIN_INITIAL_PASSWORD=
-
-# LLM API Configuration (configure at least one)
-# Doubao (豆包)
-DOUBAO_API_KEY=
-DOUBAO_API_BASE=https://ark.cn-beijing.volces.com/api/v3
-DOUBAO_MODEL=doubao-4o
-
-# OpenAI
-OPENAI_API_KEY=
-OPENAI_API_BASE=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4o
-
-# Server Configuration
-ALLOWED_ORIGINS=http://localhost:$FrontendPort
-"@
-
-$EnvContent | Out-File -FilePath ".env" -Encoding utf8 -Force
-Write-Success ".env file created"
+# Create/Update .env file
+Update-EnvFile -JwtSecret $JwtSecret -FrontendPort $FrontendPort
 
 # Determine image names (matches CI/CD build format)
 $BackendImage = "$Registry/$Namespace/$Repo`:$ImagePrefix-backend-$Version"
 $FrontendImage = "$Registry/$Namespace/$Repo`:$ImagePrefix-frontend-$Version"
 Write-Info "Using images: $BackendImage, $FrontendImage"
 
-# Create docker-compose.deploy.yml
-Write-Info "Creating deployment configuration..."
+# Update or Create docker-compose.deploy.yml
+if (-not $Update -or -not (Test-Path "docker-compose.deploy.yml")) {
+    Write-Info "Creating deployment configuration..."
 
-# Use $dollar variable to avoid PowerShell parsing issues with ${...} syntax
-$dollar = '$'
-$ComposeContent = @"
+    # Use $dollar variable to avoid PowerShell parsing issues with ${...} syntax
+    $dollar = '$'
+    $ComposeContent = @"
 version: '3.8'
 
 services:
@@ -220,8 +260,11 @@ networks:
     driver: bridge
 "@
 
-$ComposeContent | Out-File -FilePath "docker-compose.deploy.yml" -Encoding utf8 -Force
-Write-Success "Deployment configuration created"
+    $ComposeContent | Out-File -FilePath "docker-compose.deploy.yml" -Encoding utf8 -Force
+    Write-Success "Deployment configuration created"
+} else {
+    Write-Info "Update mode: skipping compose file generation"
+}
 
 # Pull images
 Write-Info "Pulling images from $Registry..."
@@ -239,9 +282,19 @@ Write-Success "Frontend image pulled"
 
 # Start services
 Write-Info "Starting ITOps Agent Platform..."
-docker compose -f docker-compose.deploy.yml up -d
+if ($Update) {
+    Write-Info "Update mode: stopping and removing old containers..."
+    docker compose -f docker-compose.deploy.yml down --remove-orphans
+}
+
+docker compose -f docker-compose.deploy.yml up -d --remove-orphans
 if ($LASTEXITCODE -ne 0) {
     Write-Error-Msg "Failed to start services"
+}
+
+if ($Update) {
+    Write-Info "Pruning old images to free up space..."
+    docker image prune -f --filter "reference=$Registry/$Namespace/$Repo*" 2>$null
 }
 
 # Wait for services to be ready
