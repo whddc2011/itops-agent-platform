@@ -15,7 +15,7 @@
 
 企业级 IT 运维多 Agent 自动化平台 — 基于大语言模型的全开源多Agent智能运维解决方案。
 
-📝[项目愿景与社区共建](docs/项目愿景与社区共建.md) 📝[项目入门学习文档](docs/book/README.md)
+📝[项目愿景与社区共建](项目愿景与社区共建.md) 📝[项目入门学习文档](从入门到精通（项目教学书籍）)
 
 [![CI](https://github.com/qinshihu/itops-agent-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/qinshihu/itops-agent-platform/actions/workflows/ci.yml)
 [![Release](https://github.com/qinshihu/itops-agent-platform/actions/workflows/release.yml/badge.svg)](https://github.com/qinshihu/itops-agent-platform/actions/workflows/release.yml)

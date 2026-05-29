@@ -133,9 +133,9 @@
 - 💬 微信公众号：**IT Online**
 
 <p align="left">
-  <img src="../../frontend/public/wechaterweima.png" width="200" alt="IT Online 微信公众号">
+  <img src="../frontend/public/wechaterweima.png" width="200" alt="IT Online 微信公众号">
 </p>
 
 ## 许可证
 
-[MPL-2.0](../../LICENSE) © 谭策
+[MPL-2.0](LICENSE) © 谭策
